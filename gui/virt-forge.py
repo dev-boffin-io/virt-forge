@@ -425,6 +425,21 @@ class VMTab(QWidget):
         rl3.addWidget(iso_browse)
         fl.addRow("Boot ISO:", row3)
 
+        # Extra CD-ROM (e.g. VirtIO drivers for Windows)
+        self.extra_cdrom_path = QLineEdit()
+        self.extra_cdrom_path.setPlaceholderText("Optional — VirtIO driver ISO for Windows install")
+
+        extra_cdrom_browse = QPushButton("Browse…")
+        extra_cdrom_browse.setFixedWidth(120)
+        extra_cdrom_browse.clicked.connect(self._browse_extra_cdrom)
+
+        row4 = QWidget()
+        rl4  = QHBoxLayout(row4)
+        rl4.setContentsMargins(0, 0, 0, 0)
+        rl4.addWidget(self.extra_cdrom_path, stretch=1)
+        rl4.addWidget(extra_cdrom_browse)
+        fl.addRow("Extra CD-ROM:", row4)
+
         return g
 
     # ── Resources ─────────────────────────────────────────────
@@ -656,6 +671,13 @@ class VMTab(QWidget):
         if path:
             self.iso_path.setText(path)
 
+    def _browse_extra_cdrom(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select Extra CD-ROM ISO", str(Path.home()),
+            "ISO Images (*.iso);;All Files (*)")
+        if path:
+            self.extra_cdrom_path.setText(path)
+
     def _effective_disk(self):
         """Manual path field takes priority over combo selection."""
         manual = self.disk_path.text().strip()
@@ -687,6 +709,10 @@ class VMTab(QWidget):
         if iso and not Path(iso).exists():
             return None, f"ISO file not found:\n{iso}"
 
+        extra_cdrom = self.extra_cdrom_path.text().strip()
+        if extra_cdrom and not Path(extra_cdrom).exists():
+            return None, f"Extra CD-ROM ISO not found:\n{extra_cdrom}"
+
         args = [str(qemu_run)]
         args += ["--profile", self.profile_combo.currentData()]
         args += ["--arch",    self.arch_combo.currentData()]
@@ -697,6 +723,9 @@ class VMTab(QWidget):
 
         if iso:
             args += ["--iso", iso]
+
+        if extra_cdrom:
+            args += ["--extra-cdrom", extra_cdrom]
 
         extra = self.extra_fwds.text().strip()
         if extra:
