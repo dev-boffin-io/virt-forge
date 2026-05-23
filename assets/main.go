@@ -42,6 +42,7 @@ VM config (overrides profile defaults):
   --ram     <MB>         RAM in megabytes
   --cpu     <n>          CPU core count
   --iso     <path>       Boot ISO (first boot / OS install)
+  --extra-cdrom <path>   Second CD-ROM ISO (e.g. VirtIO drivers for Windows install)
 
 Network:
   --ssh     <port>       Host SSH forward port  (default: 4444)
@@ -119,6 +120,7 @@ type VMConfig struct {
 	Arch       string
 	Disk       string
 	ISO        string // not saved to profile
+	ExtraCDROM string // not saved to profile — second CD-ROM (e.g. VirtIO driver ISO for Windows)
 	SpicePass  string // not saved to profile
 	Snapshot   string // not saved to profile — boot into specific snapshot
 	Incoming    string // not saved to profile — live migration destination URI
@@ -620,6 +622,12 @@ func buildQemuArgs(cfg *VMConfig, useKVM bool, bios string) []string {
 		args = append(args, "-boot", "order=c")
 	}
 
+	// Second CD-ROM — optional, e.g. VirtIO driver ISO for Windows installs
+	if cfg.ExtraCDROM != "" {
+		args = append(args, "-drive",
+			fmt.Sprintf("file=%s,media=cdrom,index=2,readonly=on", cfg.ExtraCDROM))
+	}
+
 	netArg := fmt.Sprintf("user,id=n1,hostfwd=tcp::%d-:22", cfg.SSHPort)
 	for _, f := range cfg.ExtraFwds {
 		netArg += fmt.Sprintf(",hostfwd=tcp::%d-:%d", f.HostPort, f.GuestPort)
@@ -1038,6 +1046,15 @@ func main() {
 			os.Exit(1)
 		}
 		cfg.ISO = iso
+	}
+
+	// --extra-cdrom (second CD-ROM, e.g. VirtIO driver ISO for Windows installs)
+	if xiso := flags.str("extra-cdrom", ""); xiso != "" {
+		if _, err := os.Stat(xiso); err != nil {
+			fmt.Fprintf(os.Stderr, "❌ Extra CDROM ISO not found: %s\n", xiso)
+			os.Exit(1)
+		}
+		cfg.ExtraCDROM = xiso
 	}
 
 	// --ram
